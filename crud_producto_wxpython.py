@@ -1,21 +1,9 @@
 import wx
-
-class Producto:
-    def __init__(self, codigo, nombre, descripcion, precio, stock, caducidad, categoria, inventario):
-        self.codigo = codigo
-        self.nombre = nombre
-        self.descripcion = descripcion
-        self.precio = precio
-        self.stock = stock
-        self.caducidad = caducidad
-        self.categoria = categoria
-        self.inventario = inventario
+from conexion import conectar
 
 class ProductoCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(ProductoCRUD, self).__init__(parent, title=title, size=(800, 500))
-
-        self.productos = []
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -41,27 +29,27 @@ class ProductoCRUD(wx.Frame):
         vbox.Add(hbox_buttons, flag=wx.ALIGN_CENTER|wx.TOP, border=10)
 
         self.lista = wx.ListCtrl(panel, style=wx.LC_REPORT)
-        headers = ["Código", "Nombre", "Descripción", "Precio", "Stock", "Caducidad", "Categoría", "Inventario"]
-        for idx, h in enumerate(headers):
+        for idx, h in enumerate(labels):
             self.lista.InsertColumn(idx, h, width=100)
         vbox.Add(self.lista, proportion=1, flag=wx.EXPAND|wx.ALL, border=10)
 
         panel.SetSizer(vbox)
 
-        btn_add.Bind(wx.EVT_BUTTON, self.agregar_producto)
-        btn_update.Bind(wx.EVT_BUTTON, self.actualizar_producto)
-        btn_delete.Bind(wx.EVT_BUTTON, self.eliminar_producto)
+        btn_add.Bind(wx.EVT_BUTTON, self.agregar)
+        btn_update.Bind(wx.EVT_BUTTON, self.actualizar)
+        btn_delete.Bind(wx.EVT_BUTTON, self.eliminar)
         self.lista.Bind(wx.EVT_LIST_ITEM_SELECTED, self.seleccionar_item)
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def get_inputs(self):
         return [i.GetValue() for i in self.inputs]
 
     def set_inputs(self, values):
         for i, val in zip(self.inputs, values):
-            i.SetValue(val)
+            i.SetValue(str(val))
 
     def limpiar_campos(self):
         for i in self.inputs:
@@ -69,43 +57,55 @@ class ProductoCRUD(wx.Frame):
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for p in self.productos:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), p.codigo)
-            self.lista.SetItem(index, 1, p.nombre)
-            self.lista.SetItem(index, 2, p.descripcion)
-            self.lista.SetItem(index, 3, str(p.precio))
-            self.lista.SetItem(index, 4, str(p.stock))
-            self.lista.SetItem(index, 5, p.caducidad)
-            self.lista.SetItem(index, 6, p.categoria)
-            self.lista.SetItem(index, 7, p.inventario)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM producto")
+        for p in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), p[0])
+            for i in range(1, len(p)):
+                self.lista.SetItem(index, i, str(p[i]))
+        conn.close()
 
-    def agregar_producto(self, event):
+    def agregar(self, event):
         valores = self.get_inputs()
         if all(valores):
-            nuevo = Producto(*valores)
-            self.productos.append(nuevo)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO producto VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", valores)
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
-    def actualizar_producto(self, event):
+    def actualizar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
             valores = self.get_inputs()
-            self.productos[idx] = Producto(*valores)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE producto SET nombre=%s, descripcion=%s, precio=%s, stock=%s,
+                              caducidad=%s, categoria=%s, inventario=%s WHERE codigo=%s""",
+                           (*valores[1:], valores[0]))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
-    def eliminar_producto(self, event):
+    def eliminar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
-            del self.productos[idx]
+            codigo = self.lista.GetItemText(idx)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM producto WHERE codigo=%s", (codigo,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         idx = event.GetIndex()
-        prod = self.productos[idx]
-        valores = [prod.codigo, prod.nombre, prod.descripcion, str(prod.precio), str(prod.stock), prod.caducidad, prod.categoria, prod.inventario]
+        valores = [self.lista.GetItem(idx, i).GetText() for i in range(len(self.inputs))]
         self.set_inputs(valores)
 
 if __name__ == '__main__':

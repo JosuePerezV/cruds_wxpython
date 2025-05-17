@@ -1,46 +1,33 @@
 import wx
-
-class Categoria:
-    def __init__(self, id_categoria, nombre, descripcion):
-        self.id_categoria = id_categoria
-        self.nombre = nombre
-        self.descripcion = descripcion
+from conexion import conectar
 
 class CategoriaCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(CategoriaCRUD, self).__init__(parent, title=title, size=(600, 400))
 
-        self.categorias = []
-
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox1.Add(wx.StaticText(panel, label="ID Categoría:"), flag=wx.RIGHT, border=8)
         self.txt_id = wx.TextCtrl(panel)
-        hbox1.Add(self.txt_id, proportion=1)
-        vbox.Add(hbox1, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
-
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox2.Add(wx.StaticText(panel, label="Nombre:"), flag=wx.RIGHT, border=33)
         self.txt_nombre = wx.TextCtrl(panel)
-        hbox2.Add(self.txt_nombre, proportion=1)
-        vbox.Add(hbox2, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
-
-        hbox3 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox3.Add(wx.StaticText(panel, label="Descripción:"), flag=wx.RIGHT, border=10)
         self.txt_desc = wx.TextCtrl(panel)
-        hbox3.Add(self.txt_desc, proportion=1)
-        vbox.Add(hbox3, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
 
-        hbox4 = wx.BoxSizer(wx.HORIZONTAL)
+        campos = [("ID Categoría:", self.txt_id), ("Nombre:", self.txt_nombre), ("Descripción:", self.txt_desc)]
+
+        for label, ctrl in campos:
+            hbox = wx.BoxSizer(wx.HORIZONTAL)
+            hbox.Add(wx.StaticText(panel, label=label), flag=wx.RIGHT, border=8)
+            hbox.Add(ctrl, proportion=1)
+            vbox.Add(hbox, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=5)
+
+        hbox_buttons = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_add = wx.Button(panel, label="Agregar")
         self.btn_update = wx.Button(panel, label="Actualizar")
         self.btn_delete = wx.Button(panel, label="Eliminar")
-        hbox4.Add(self.btn_add)
-        hbox4.Add(self.btn_update, flag=wx.LEFT, border=5)
-        hbox4.Add(self.btn_delete, flag=wx.LEFT, border=5)
-        vbox.Add(hbox4, flag=wx.ALIGN_CENTER|wx.TOP, border=10)
+        hbox_buttons.Add(self.btn_add)
+        hbox_buttons.Add(self.btn_update, flag=wx.LEFT, border=5)
+        hbox_buttons.Add(self.btn_delete, flag=wx.LEFT, border=5)
+        vbox.Add(hbox_buttons, flag=wx.ALIGN_CENTER|wx.TOP, border=10)
 
         self.lista = wx.ListCtrl(panel, style=wx.LC_REPORT)
         self.lista.InsertColumn(0, 'ID', width=70)
@@ -57,47 +44,63 @@ class CategoriaCRUD(wx.Frame):
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def agregar_categoria(self, event):
         id_cat = self.txt_id.GetValue()
         nombre = self.txt_nombre.GetValue()
         descripcion = self.txt_desc.GetValue()
-        
         if id_cat and nombre:
-            cat = Categoria(id_cat, nombre, descripcion)
-            self.categorias.append(cat)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO categoria (id_categoria, nombre, descripcion) VALUES (%s, %s, %s)",
+                           (id_cat, nombre, descripcion))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def actualizar_categoria(self, event):
-        seleccion = self.lista.GetFirstSelected()
-        if seleccion >= 0:
-            self.categorias[seleccion].id_categoria = self.txt_id.GetValue()
-            self.categorias[seleccion].nombre = self.txt_nombre.GetValue()
-            self.categorias[seleccion].descripcion = self.txt_desc.GetValue()
-            self.actualizar_lista()
-            self.limpiar_campos()
+        id_cat = self.txt_id.GetValue()
+        nombre = self.txt_nombre.GetValue()
+        descripcion = self.txt_desc.GetValue()
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE categoria SET nombre=%s, descripcion=%s WHERE id_categoria=%s",
+                       (nombre, descripcion, id_cat))
+        conn.commit()
+        conn.close()
+        self.actualizar_lista()
+        self.limpiar_campos()
 
     def eliminar_categoria(self, event):
         seleccion = self.lista.GetFirstSelected()
         if seleccion >= 0:
-            del self.categorias[seleccion]
+            id_cat = self.lista.GetItemText(seleccion)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM categoria WHERE id_categoria=%s", (id_cat,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         seleccion = event.GetIndex()
-        cat = self.categorias[seleccion]
-        self.txt_id.SetValue(cat.id_categoria)
-        self.txt_nombre.SetValue(cat.nombre)
-        self.txt_desc.SetValue(cat.descripcion)
+        self.txt_id.SetValue(self.lista.GetItemText(seleccion))
+        self.txt_nombre.SetValue(self.lista.GetItem(seleccion, 1).GetText())
+        self.txt_desc.SetValue(self.lista.GetItem(seleccion, 2).GetText())
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for cat in self.categorias:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), cat.id_categoria)
-            self.lista.SetItem(index, 1, cat.nombre)
-            self.lista.SetItem(index, 2, cat.descripcion)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM categoria")
+        for row in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), str(row[0]))
+            self.lista.SetItem(index, 1, row[1])
+            self.lista.SetItem(index, 2, row[2])
+        conn.close()
 
     def limpiar_campos(self):
         self.txt_id.SetValue("")

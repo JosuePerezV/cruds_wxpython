@@ -1,18 +1,9 @@
 import wx
-
-class Cliente:
-    def __init__(self, idcliente, nombres, apellidos, telefono, email):
-        self.idcliente = idcliente
-        self.nombres = nombres
-        self.apellidos = apellidos
-        self.telefono = telefono
-        self.email = email
+from conexion import conectar
 
 class ClienteCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(ClienteCRUD, self).__init__(parent, title=title, size=(600, 400))
-
-        self.clientes = []
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -51,13 +42,14 @@ class ClienteCRUD(wx.Frame):
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def get_inputs(self):
         return [i.GetValue() for i in self.inputs]
 
     def set_inputs(self, values):
         for i, val in zip(self.inputs, values):
-            i.SetValue(val)
+            i.SetValue(str(val))
 
     def limpiar_campos(self):
         for i in self.inputs:
@@ -65,18 +57,25 @@ class ClienteCRUD(wx.Frame):
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for c in self.clientes:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), c.idcliente)
-            self.lista.SetItem(index, 1, c.nombres)
-            self.lista.SetItem(index, 2, c.apellidos)
-            self.lista.SetItem(index, 3, c.telefono)
-            self.lista.SetItem(index, 4, c.email)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM cliente")
+        for c in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), str(c[0]))
+            self.lista.SetItem(index, 1, c[1])
+            self.lista.SetItem(index, 2, c[2])
+            self.lista.SetItem(index, 3, c[3])
+            self.lista.SetItem(index, 4, c[4])
+        conn.close()
 
     def agregar(self, event):
         valores = self.get_inputs()
         if all(valores):
-            nuevo = Cliente(*valores)
-            self.clientes.append(nuevo)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO cliente VALUES (%s, %s, %s, %s, %s)", valores)
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
@@ -84,21 +83,30 @@ class ClienteCRUD(wx.Frame):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
             valores = self.get_inputs()
-            self.clientes[idx] = Cliente(*valores)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE cliente SET nombres=%s, apellidos=%s, telefono=%s, email=%s WHERE idcliente=%s""",
+                           (valores[1], valores[2], valores[3], valores[4], valores[0]))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def eliminar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
-            del self.clientes[idx]
+            idcliente = self.lista.GetItemText(idx)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM cliente WHERE idcliente=%s", (idcliente,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         idx = event.GetIndex()
-        c = self.clientes[idx]
-        valores = [c.idcliente, c.nombres, c.apellidos, c.telefono, c.email]
+        valores = [self.lista.GetItem(idx, i).GetText() for i in range(len(self.inputs))]
         self.set_inputs(valores)
 
 if __name__ == '__main__':

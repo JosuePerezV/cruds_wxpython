@@ -1,18 +1,9 @@
 import wx
-
-class Empleado:
-    def __init__(self, idempleado, nombres, apellidos, direccion, telefono):
-        self.idempleado = idempleado
-        self.nombres = nombres
-        self.apellidos = apellidos
-        self.direccion = direccion
-        self.telefono = telefono
+from conexion import conectar
 
 class EmpleadoCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(EmpleadoCRUD, self).__init__(parent, title=title, size=(600, 400))
-
-        self.empleados = []
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -51,13 +42,14 @@ class EmpleadoCRUD(wx.Frame):
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def get_inputs(self):
         return [i.GetValue() for i in self.inputs]
 
     def set_inputs(self, values):
         for i, val in zip(self.inputs, values):
-            i.SetValue(val)
+            i.SetValue(str(val))
 
     def limpiar_campos(self):
         for i in self.inputs:
@@ -65,18 +57,23 @@ class EmpleadoCRUD(wx.Frame):
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for c in self.empleados:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), c.idempleado)
-            self.lista.SetItem(index, 1, c.nombres)
-            self.lista.SetItem(index, 2, c.apellidos)
-            self.lista.SetItem(index, 3, c.direccion)
-            self.lista.SetItem(index, 4, c.telefono)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM empleado")
+        for c in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), str(c[0]))
+            for i in range(1, len(c)):
+                self.lista.SetItem(index, i, str(c[i]))
+        conn.close()
 
     def agregar(self, event):
         valores = self.get_inputs()
         if all(valores):
-            nuevo = Empleado(*valores)
-            self.empleados.append(nuevo)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO empleado VALUES (%s, %s, %s, %s, %s)", valores)
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
@@ -84,21 +81,30 @@ class EmpleadoCRUD(wx.Frame):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
             valores = self.get_inputs()
-            self.empleados[idx] = Empleado(*valores)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE empleado SET nombres=%s, apellidos=%s, direccion=%s, telefono=%s WHERE idempleado=%s""",
+                           (valores[1], valores[2], valores[3], valores[4], valores[0]))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def eliminar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
-            del self.empleados[idx]
+            idemp = self.lista.GetItemText(idx)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM empleado WHERE idempleado=%s", (idemp,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         idx = event.GetIndex()
-        e = self.empleados[idx]
-        valores = [e.idempleado, e.nombres, e.apellidos, e.direccion, e.telefono]
+        valores = [self.lista.GetItem(idx, i).GetText() for i in range(len(self.inputs))]
         self.set_inputs(valores)
 
 if __name__ == '__main__':

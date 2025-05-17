@@ -1,22 +1,14 @@
 import wx
-
-class Membresia:
-    def __init__(self, id_tarjeta, puntos, fecha_emision, fecha_expiracion):
-        self.id_tarjeta = id_tarjeta
-        self.puntos = puntos
-        self.fecha_emision = fecha_emision
-        self.fecha_expiracion = fecha_expiracion
+from conexion import conectar
 
 class MembresiaCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(MembresiaCRUD, self).__init__(parent, title=title, size=(600, 400))
 
-        self.membresias = []
-
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        labels = ["ID Tarjeta", "Puntos Acumulados", "Fecha Emisión", "Fecha Expiración"]
+        labels = ["ID Tarjeta", "Puntos", "Fecha Emisión", "Fecha Expiración"]
         self.inputs = []
 
         for label in labels:
@@ -50,13 +42,14 @@ class MembresiaCRUD(wx.Frame):
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def get_inputs(self):
         return [i.GetValue() for i in self.inputs]
 
     def set_inputs(self, values):
         for i, val in zip(self.inputs, values):
-            i.SetValue(val)
+            i.SetValue(str(val))
 
     def limpiar_campos(self):
         for i in self.inputs:
@@ -64,17 +57,24 @@ class MembresiaCRUD(wx.Frame):
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for m in self.membresias:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), m.id_tarjeta)
-            self.lista.SetItem(index, 1, m.puntos)
-            self.lista.SetItem(index, 2, m.fecha_emision)
-            self.lista.SetItem(index, 3, m.fecha_expiracion)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM membresia")
+        for m in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), str(m[0]))
+            self.lista.SetItem(index, 1, str(m[1]))
+            self.lista.SetItem(index, 2, m[2])
+            self.lista.SetItem(index, 3, m[3])
+        conn.close()
 
     def agregar(self, event):
         valores = self.get_inputs()
         if all(valores):
-            nuevo = Membresia(*valores)
-            self.membresias.append(nuevo)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO membresia VALUES (%s, %s, %s, %s)", valores)
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
@@ -82,21 +82,30 @@ class MembresiaCRUD(wx.Frame):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
             valores = self.get_inputs()
-            self.membresias[idx] = Membresia(*valores)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE membresia SET puntos=%s, fecha_emision=%s, fecha_expiracion=%s WHERE id_tarjeta=%s""",
+                           (valores[1], valores[2], valores[3], valores[0]))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def eliminar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
-            del self.membresias[idx]
+            id_tarjeta = self.lista.GetItemText(idx)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM membresia WHERE id_tarjeta=%s", (id_tarjeta,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         idx = event.GetIndex()
-        m = self.membresias[idx]
-        valores = [m.id_tarjeta, m.puntos, m.fecha_emision, m.fecha_expiracion]
+        valores = [self.lista.GetItem(idx, i).GetText() for i in range(len(self.inputs))]
         self.set_inputs(valores)
 
 if __name__ == '__main__':

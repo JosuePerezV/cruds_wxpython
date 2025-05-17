@@ -1,17 +1,9 @@
 import wx
-
-class Proveedor:
-    def __init__(self, idproveedor, nombre, telefono, direccion):
-        self.idproveedor = idproveedor
-        self.nombre = nombre
-        self.telefono = telefono
-        self.direccion = direccion
+from conexion import conectar
 
 class ProveedorCRUD(wx.Frame):
     def __init__(self, parent, title):
         super(ProveedorCRUD, self).__init__(parent, title=title, size=(600, 400))
-
-        self.proveedores = []
 
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -50,13 +42,14 @@ class ProveedorCRUD(wx.Frame):
 
         self.Centre()
         self.Show()
+        self.actualizar_lista()
 
     def get_inputs(self):
         return [i.GetValue() for i in self.inputs]
 
     def set_inputs(self, values):
         for i, val in zip(self.inputs, values):
-            i.SetValue(val)
+            i.SetValue(str(val))
 
     def limpiar_campos(self):
         for i in self.inputs:
@@ -64,17 +57,24 @@ class ProveedorCRUD(wx.Frame):
 
     def actualizar_lista(self):
         self.lista.DeleteAllItems()
-        for p in self.proveedores:
-            index = self.lista.InsertItem(self.lista.GetItemCount(), p.idproveedor)
-            self.lista.SetItem(index, 1, p.nombre)
-            self.lista.SetItem(index, 2, p.telefono)
-            self.lista.SetItem(index, 3, p.direccion)
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM proveedor")
+        for p in cursor.fetchall():
+            index = self.lista.InsertItem(self.lista.GetItemCount(), str(p[0]))
+            self.lista.SetItem(index, 1, p[1])
+            self.lista.SetItem(index, 2, p[2])
+            self.lista.SetItem(index, 3, p[3])
+        conn.close()
 
     def agregar(self, event):
         valores = self.get_inputs()
         if all(valores):
-            nuevo = Proveedor(*valores)
-            self.proveedores.append(nuevo)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO proveedor VALUES (%s, %s, %s, %s)", valores)
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
@@ -82,21 +82,30 @@ class ProveedorCRUD(wx.Frame):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
             valores = self.get_inputs()
-            self.proveedores[idx] = Proveedor(*valores)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("""UPDATE proveedor SET nombre=%s, telefono=%s, direccion=%s WHERE idproveedor=%s""",
+                           (valores[1], valores[2], valores[3], valores[0]))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def eliminar(self, event):
         idx = self.lista.GetFirstSelected()
         if idx >= 0:
-            del self.proveedores[idx]
+            idprov = self.lista.GetItemText(idx)
+            conn = conectar()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM proveedor WHERE idproveedor=%s", (idprov,))
+            conn.commit()
+            conn.close()
             self.actualizar_lista()
             self.limpiar_campos()
 
     def seleccionar_item(self, event):
         idx = event.GetIndex()
-        p = self.proveedores[idx]
-        valores = [p.idproveedor, p.nombre, p.telefono, p.direccion]
+        valores = [self.lista.GetItem(idx, i).GetText() for i in range(len(self.inputs))]
         self.set_inputs(valores)
 
 if __name__ == '__main__':
