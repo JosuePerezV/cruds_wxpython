@@ -1,46 +1,53 @@
-# CRUDs con wxPython y MySQL
+# Sistema POS HEB
 
-Este proyecto contiene 7 interfaces CRUD desarrolladas en Python con wxPython, conectadas a una base de datos MySQL.
+Este proyecto es un sistema de punto de venta completo desarrollado en **Python** con **wxPython** y **MySQL**.
 
-## Tablas de catálogo
+## 🚀 Requisitos
 
-- Categoría
-- Producto
-- Cliente
-- Empleado
-- Proveedor
-- Membresía
-- Detalle de venta
+- Python 3.11 o superior
+- MySQL Server
+- Módulos de Python (ver `requirements.txt`)
 
-## Requisitos
+## 📦 Instalación
 
-- Python 3.x
-- wxPython
-- mysql-connector-python
-- MySQL instalado y funcionando
+1. Clona o descarga este repositorio.
+2. Ejecuta el script SQL en MySQL Workbench o consola:
+   ```
+   crear_bd_sistema_ventas.sql
+   ```
+3. Instala los módulos requeridos:
+   ```
+   pip install -r requirements.txt
+   ```
+4. Ejecuta el sistema:
+   ```
+   python main.py
+   ```
 
-## Instalación de dependencias
+## ✅ Funcionalidades
 
-```bash
-pip install wxPython mysql-connector-python
+- Login de usuarios
+- Menú lateral moderno
+- CRUD de Clientes, Empleados, Categorías, Proveedores, Productos, Membresías y Usuarios
+- Escaneo de productos por código de barras con cámara
+- Generación de tickets PDF
+- Control de stock y carrito
+- Registro de ventas y detalle
+
+## 📁 Estructura
+```
+main.py
+main_lateral.py
+venta_pos.py
+conexion.py
+crud_*.py
+codigos_barras/
+crear_bd_sistema_ventas.sql
+requirements.txt
+.gitignore
 ```
 
-## Base de datos
+## 👤 Acceso de prueba
+- Usuario: admin
+- Contraseña: admin123
 
-La base de datos se llama `sistema_ventas`. Ejecuta el archivo `crear_bd_sistema_ventas.sql` en MySQL Workbench o consola para crear todas las tablas necesarias.
-
-## Cómo ejecutar
-
-Ejecuta cualquier CRUD así:
-
-```bash
-python crud_cliente_wxpython.py
-```
-
-## Conexión
-
-La conexión a la base de datos se realiza desde el archivo `conexion.py`. Asegúrate de tener configurado correctamente el host, usuario, contraseña y nombre de la base.
-
-## Autor
-
-Ivan Pérez – 4° semestre de Ingeniería en Sistemas Computacionales
